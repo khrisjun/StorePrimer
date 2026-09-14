@@ -7,12 +7,14 @@ import re
 import shutil
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from pathlib import Path
 from typing import Any
 
 
 USER_AGENT = "StorePrimer-IssuuToPDF/1.0"
+DEFAULT_ISSUU_URL = "https://issuu.com/focusathenley/docs/msa_primer_pre-publication_v1"
 
 
 def fetch_html(url: str, timeout: int = 30) -> str:
@@ -143,6 +145,18 @@ def sanitize_filename(name: str) -> str:
     return cleaned.strip("_") or "issuu-document"
 
 
+def derive_output_basename(issuu_url: str, fallback_title: str) -> str:
+    parsed = urllib.parse.urlparse(issuu_url)
+    segments = [segment for segment in parsed.path.split("/") if segment]
+    if "docs" in segments:
+        docs_index = segments.index("docs")
+        if docs_index + 1 < len(segments):
+            return sanitize_filename(segments[docs_index + 1])
+    if segments:
+        return sanitize_filename(segments[-1])
+    return sanitize_filename(fallback_title)
+
+
 def build_page_image_urls(document_id: str, page_number: int) -> list[str]:
     return [
         f"https://image.isu.pub/{document_id}/jpg/page_{page_number}.jpg",
@@ -212,12 +226,13 @@ def convert_issuu_to_searchable_pdf(
     metadata = extract_document_metadata(html)
     doc_id = metadata["document_id"]
     page_count = metadata["page_count"]
-    title = sanitize_filename(metadata["title"])
+    title = metadata["title"]
+    output_basename = derive_output_basename(issuu_url, title)
 
     if output_pdf is None:
-        output_pdf = Path.cwd() / f"{title}.pdf"
+        output_pdf = Path.cwd() / f"{output_basename}.pdf"
     if workdir is None:
-        workdir = Path.cwd() / f"{title}_work"
+        workdir = Path.cwd() / f"{output_basename}_work"
 
     pages_dir = workdir / "pages"
     images = download_page_images(doc_id, page_count, pages_dir)
@@ -233,7 +248,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Download Issuu flipbook pages and create a searchable OCR PDF."
     )
-    parser.add_argument("--url", required=True, help="Issuu document URL.")
+    parser.add_argument(
+        "--url",
+        default=DEFAULT_ISSUU_URL,
+        help="Issuu document URL. Defaults to the MSA Primer first-pass document.",
+    )
     parser.add_argument("--output", help="Path to output PDF.")
     parser.add_argument(
         "--workdir",
