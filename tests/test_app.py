@@ -2,10 +2,13 @@ import io
 import unittest
 from unittest.mock import patch
 
-from app import application
+from app import app, application
 
 
 class AppTests(unittest.TestCase):
+    def test_app_alias_points_to_wsgi_application(self) -> None:
+        self.assertIs(app, application)
+
     def _request(self, method: str, path: str, body: bytes = b"") -> tuple[str, dict[str, str], bytes]:
         environ = {
             "REQUEST_METHOD": method,
