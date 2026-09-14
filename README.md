@@ -9,6 +9,8 @@ This repository includes a minimal script that:
 4. OCRs each page into a searchable text-layer PDF
 5. Merges all pages into one final document
 
+It also includes a minimal web app (`app.py`) with a form where you can paste an Issuu URL and directly download the generated PDF.
+
 ### Requirements
 
 - Python 3.9+
@@ -44,3 +46,13 @@ python /home/runner/work/StorePrimer/StorePrimer/issuu_to_pdf.py \
 Optional flags:
 - `--workdir <path>` to keep intermediate files in a chosen location
 - `--keep-images` to avoid deleting intermediate downloaded/OCR files
+
+### Web app usage
+
+Run:
+
+```bash
+python /home/runner/work/StorePrimer/StorePrimer/app.py
+```
+
+Then open `http://localhost:7860`, paste the Issuu URL, and click **Convert and download**.

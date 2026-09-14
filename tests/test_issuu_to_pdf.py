@@ -42,6 +42,27 @@ class IssuuToPdfTests(unittest.TestCase):
         self.assertEqual(metadata["page_count"], 8)
         self.assertEqual(metadata["title"], "MSA Primer")
 
+    def test_extract_document_metadata_from_next_data_blob(self) -> None:
+        html = """
+        <script id="__NEXT_DATA__" type="application/json">
+        {
+          "props": {
+            "pageProps": {
+              "publication": {
+                "documentId": "next12345",
+                "pageCount": 12,
+                "title": "Next Primer"
+              }
+            }
+          }
+        }
+        </script>
+        """
+        metadata = extract_document_metadata(html)
+        self.assertEqual(metadata["document_id"], "next12345")
+        self.assertEqual(metadata["page_count"], 12)
+        self.assertEqual(metadata["title"], "Next Primer")
+
     def test_build_page_image_urls(self) -> None:
         urls = build_page_image_urls("docid", 3)
         self.assertEqual(

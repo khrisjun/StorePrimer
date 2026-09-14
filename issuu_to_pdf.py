@@ -64,21 +64,6 @@ def extract_document_metadata(html: str) -> dict[str, Any]:
 
 
 def _extract_from_json_blob(html: str) -> dict[str, Any] | None:
-    marker = "window.__INITIAL_STATE__"
-    if marker not in html:
-        return None
-
-    start = html.find(marker)
-    snippet = html[start : start + 300_000]
-    match = re.search(r"window\.__INITIAL_STATE__\s*=\s*(\{.*?\})\s*;", snippet, re.DOTALL)
-    if not match:
-        return None
-
-    try:
-        data = json.loads(match.group(1))
-    except json.JSONDecodeError:
-        return None
-
     def walk(node: Any) -> tuple[str | None, int | None, str | None]:
         if isinstance(node, dict):
             document_id = None
@@ -114,15 +99,43 @@ def _extract_from_json_blob(html: str) -> dict[str, Any] | None:
 
         return None, None, None
 
-    document_id, page_count, title = walk(data)
-    if not document_id or not page_count:
-        return None
+    json_candidates: list[str] = []
 
-    return {
-        "document_id": document_id,
-        "page_count": page_count,
-        "title": _clean_title(title or "issuu-document"),
-    }
+    marker = "window.__INITIAL_STATE__"
+    if marker in html:
+        start = html.find(marker)
+        snippet = html[start : start + 300_000]
+        match = re.search(
+            r"window\.__INITIAL_STATE__\s*=\s*(\{.*?\})\s*;",
+            snippet,
+            re.DOTALL,
+        )
+        if match:
+            json_candidates.append(match.group(1))
+
+    next_data_match = re.search(
+        r'<script[^>]+id="__NEXT_DATA__"[^>]*>\s*(\{.*?\})\s*</script>',
+        html,
+        re.DOTALL,
+    )
+    if next_data_match:
+        json_candidates.append(next_data_match.group(1))
+
+    for candidate in json_candidates:
+        try:
+            data = json.loads(candidate)
+        except json.JSONDecodeError:
+            continue
+
+        document_id, page_count, title = walk(data)
+        if document_id and page_count:
+            return {
+                "document_id": document_id,
+                "page_count": page_count,
+                "title": _clean_title(title or "issuu-document"),
+            }
+
+    return None
 
 
 def _extract_first_match(text: str, patterns: list[str]) -> str | None:
