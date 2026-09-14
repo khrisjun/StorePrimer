@@ -55,7 +55,7 @@ Run:
 python /home/runner/work/StorePrimer/StorePrimer/app.py
 ```
 
-Then open `http://localhost:7860`, paste the Issuu URL, and click **Convert and download**.
+Then open `http://localhost:7860`, paste the Issuu URL, click **Process**, then click **Download output document**.
 
 ### Deploying the interactive app
 
