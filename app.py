@@ -4,12 +4,15 @@ from __future__ import annotations
 import html
 import io
 import os
+import secrets
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Iterable
 from urllib.parse import parse_qs, urlparse
 
 from issuu_to_pdf import DEFAULT_ISSUU_URL, convert_issuu_to_searchable_pdf
+
+_CONVERTED_OUTPUTS: dict[str, bytes] = {}
 
 
 def _is_valid_http_url(value: str) -> bool:
@@ -38,12 +41,40 @@ def _render_form(error_message: str = "", default_url: str = DEFAULT_ISSUU_URL) 
     <label for="issuu_url">Issuu URL</label><br />
     <input id="issuu_url" name="issuu_url" type="url" required style="width: min(100%, 52rem);" value="{escaped_default_url}" />
     <br /><br />
-    <button type="submit">Convert and download</button>
+    <button type="submit">Process</button>
   </form>
 </body>
 </html>
 """
     return page.encode("utf-8")
+
+
+def _render_download(token: str) -> bytes:
+    escaped_token = html.escape(token, quote=True)
+    page = f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Issuu to searchable PDF</title>
+</head>
+<body style="font-family: sans-serif; margin: 2rem;">
+  <h1>Issuu to searchable PDF</h1>
+  <p>Your output document is ready.</p>
+  <form method="post" action="/download">
+    <input type="hidden" name="download_token" value="{escaped_token}" />
+    <button type="submit">Download output document</button>
+  </form>
+</body>
+</html>
+"""
+    return page.encode("utf-8")
+
+
+def _read_form(environ: dict) -> dict[str, list[str]]:
+    content_length = int(environ.get("CONTENT_LENGTH", "0") or "0")
+    raw_payload = environ.get("wsgi.input", io.BytesIO()).read(content_length)
+    return parse_qs(raw_payload.decode("utf-8"), keep_blank_values=True)
 
 
 def _response(
@@ -70,9 +101,7 @@ def application(environ: dict, start_response) -> Iterable[bytes]:
         return body
 
     if method == "POST" and path == "/convert":
-        content_length = int(environ.get("CONTENT_LENGTH", "0") or "0")
-        raw_payload = environ.get("wsgi.input", io.BytesIO()).read(content_length)
-        form = parse_qs(raw_payload.decode("utf-8"), keep_blank_values=True)
+        form = _read_form(environ)
         issuu_url = (form.get("issuu_url", [""])[0] or "").strip()
 
         if not _is_valid_http_url(issuu_url):
@@ -104,13 +133,37 @@ def application(environ: dict, start_response) -> Iterable[bytes]:
             start_response(status, headers)
             return body
 
-        filename = "issuu-output.pdf"
+        token = secrets.token_urlsafe(24)
+        _CONVERTED_OUTPUTS[token] = payload
+        status, headers, body = _response(
+            "200 OK",
+            _render_download(token),
+            [
+                ("Content-Type", "text/html; charset=utf-8"),
+            ],
+        )
+        start_response(status, headers)
+        return body
+
+    if method == "POST" and path == "/download":
+        form = _read_form(environ)
+        token = (form.get("download_token", [""])[0] or "").strip()
+        payload = _CONVERTED_OUTPUTS.pop(token, None)
+        if payload is None:
+            status, headers, body = _response(
+                "400 Bad Request",
+                _render_form("The download is no longer available. Please process again."),
+                [("Content-Type", "text/html; charset=utf-8")],
+            )
+            start_response(status, headers)
+            return body
+
         status, headers, body = _response(
             "200 OK",
             payload,
             [
                 ("Content-Type", "application/pdf"),
-                ("Content-Disposition", f'attachment; filename="{filename}"'),
+                ("Content-Disposition", 'attachment; filename="issuu-output.pdf"'),
             ],
         )
         start_response(status, headers)
