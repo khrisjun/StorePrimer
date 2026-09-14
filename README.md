@@ -27,6 +27,15 @@ pip install pytesseract pypdf pillow
 ### Usage
 
 ```bash
+python /home/runner/work/StorePrimer/StorePrimer/issuu_to_pdf.py
+```
+
+By default the script uses `https://issuu.com/focusathenley/docs/msa_primer_pre-publication_v1`
+and writes `msa_primer_pre-publication_v1.pdf` in the current directory.
+
+Or pass explicit inputs:
+
+```bash
 python /home/runner/work/StorePrimer/StorePrimer/issuu_to_pdf.py \
   --url "https://issuu.com/focusathenley/docs/msa_primer_pre-publication_v1" \
   --output "/home/runner/work/StorePrimer/StorePrimer/msa_primer_pre-publication_v1.pdf"
