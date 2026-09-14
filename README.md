@@ -56,3 +56,7 @@ python /home/runner/work/StorePrimer/StorePrimer/app.py
 ```
 
 Then open `http://localhost:7860`, paste the Issuu URL, and click **Convert and download**.
+
+### Deploying the interactive app
+
+This repository includes a `Procfile` (`web: python app.py`) so platforms that run Procfile-based web services start the interactive app instead of showing repository docs.

@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import html
 import io
+import os
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Iterable
@@ -124,11 +125,14 @@ def application(environ: dict, start_response) -> Iterable[bytes]:
     return body
 
 
+app = application
+
+
 def main() -> int:
     from wsgiref.simple_server import make_server
 
     host = "0.0.0.0"
-    port = 7860
+    port = int(os.environ.get("PORT", "7860"))
     print(f"Serving on http://{host}:{port}")
     with make_server(host, port, application) as server:
         server.serve_forever()
